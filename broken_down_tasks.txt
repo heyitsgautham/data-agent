@@ -1,0 +1,41 @@
+```json
+[
+  {
+    "question": "How many $2 bn movies before 2023?",
+    "steps": [
+      "Extract the 'Worldwide gross' column and convert values to numeric in billions.",
+      "Filter the dataset to include films with 'Worldwide gross' greater than or equal to 2 (representing $2 billion).",
+      "Filter the dataset to include films with 'Year' before 2023.",
+      "Count the number of films that meet both criteria."
+    ]
+  },
+  {
+    "question": "Earliest film over $1.5 bn?",
+    "steps": [
+      "Extract the 'Worldwide gross' column and convert values to numeric in billions.",
+      "Filter the dataset to include films with 'Worldwide gross' greater than or equal to 1.5 (representing $1.5 billion).",
+      "Sort the filtered data by the 'Year' column in ascending order.",
+      "Select the first film from the sorted data, representing the earliest film exceeding $1.5 billion.",
+      "Return the film's title and year."
+    ]
+  },
+  {
+    "question": "Correlation between Rank and Peak?",
+    "steps": [
+      "Extract the 'Rank' and 'Peak' columns.",
+      "Calculate the Pearson correlation coefficient between the 'Rank' and 'Peak' columns.",
+      "Return the correlation coefficient."
+    ]
+  },
+  {
+    "question": "Scatterplot of Rank vs Peak with dotted red regression line as base64 PNG.",
+    "steps": [
+      "Create a scatterplot with 'Rank' on the x-axis and 'Peak' on the y-axis.",
+      "Add a linear regression line to the scatterplot.",
+      "Set the regression line style to dotted and color to red.",
+      "Encode the plot as a base64 PNG image.",
+      "Return the base64 PNG string."
+    ]
+  }
+]
+```

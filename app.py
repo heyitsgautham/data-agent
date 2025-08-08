@@ -33,7 +33,7 @@ API_KEY = os.getenv("API_KEY")
 open_ai_url = "https://aipipe.org/openai/v1/chat/completions"
 ocr_api_key = os.getenv("OCR_API_KEY")
 OCR_API_URL = "https://api.ocr.space/parse/image"
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
 gemini_api = os.getenv("gemini_api")
 horizon_api = os.getenv("horizon_api")
 
@@ -111,7 +111,7 @@ async def ping_chatgpt(question_text, relevant_context, max_tries=3):
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": "gpt-4.1-nano",
+                "model": "openai/gpt-oss-20b:free" ,
                 "messages": [
                     {"role": "system", "content": relevant_context},
                     {"role": "user", "content": question_text}
@@ -131,28 +131,31 @@ async def ping_horizon(question_text, relevant_context="", max_tries=3):
         try:
             print(f"horizon is running {tries + 1} try")
             headers = {
-                "Authorization": f"Bearer {horizon_api}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "X-goog-api-key": gemini_api
             }
             payload = {
-                "model": "openrouter/horizon-beta",
-                "messages": [
-                    {"role": "system", "content": relevant_context},
-                    {"role": "user", "content": question_text}
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": relevant_context},
+                            {"text": question_text}
+                        ]
+                    }
                 ]
             }
             async with httpx.AsyncClient(timeout=120) as client:
                 response = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
+                    GEMINI_API_URL,
                     headers=headers,
                     json=payload
                 )
                 response.raise_for_status()
                 return response.json()
         except Exception as e:
-            print(f"Error during Horizon call: {e}")
+            print(f"Error during Gemini call: {e}")
             tries += 1
-    return {"error": "Horizon failed after max retries"}
+    return {"error": "Gemini failed after max retries"}
 
 def extract_json_from_output(output: str) -> str:
     """Extract JSON from output that might contain extra text"""
@@ -588,14 +591,21 @@ async def aianalyst(
     horizon_response = await ping_horizon(context, "You are a great Python code developer. Who write final code for the answer and our workflow using all the detail provided to you")
 
     # Clean the code response (remove markdown formatting)
-    if "choices" not in horizon_response:
-        logger.error(f"Horizon API error: {horizon_response}")
-        raise HTTPException(status_code=500, detail="Horizon API returned an error")
-    raw_code = horizon_response["choices"][0]["message"]["content"]
+    # if "choices" not in horizon_response:
+    #     logger.error(f"Horizon API error: {horizon_response}")
+    #     raise HTTPException(status_code=500, detail="Horizon API returned an error")
+    # raw_code = horizon_response["choices"][0]["message"]["content"]
+
+    if "candidates" in horizon_response:
+        raw_code = horizon_response["candidates"][0]["content"]["parts"][0]["text"]
+    elif "choices" in horizon_response:  # fallback for OpenAI/OpenRouter format
+        raw_code = horizon_response["choices"][0]["message"]["content"]
+    else:
+        raise ValueError(f"Unexpected Horizon response format: {horizon_response}")
+
     lines = raw_code.split('\n')
     clean_lines = []
     in_code_block = False
-
     for line in lines:
         if line.strip().startswith('```'):
             in_code_block = not in_code_block
@@ -603,10 +613,26 @@ async def aianalyst(
         if in_code_block or (not line.strip().startswith('```') and '```' not in line):
             clean_lines.append(line)
 
-    cleaned_code = '\n'.join(clean_lines).strip()
+    # Extract only the Python code block from raw_code if markdown formatting is present
+    match = re.search(r"```python(.*?)```", raw_code, re.DOTALL)
+    if match:
+        cleaned_code = match.group(1).strip()
+    else:
+        cleaned_code = '\n'.join(clean_lines).strip()
 
     with open("chatgpt_code.py", "w") as f:
         f.write(cleaned_code)
+    # Remove any 'quality=' parameter from plt.savefig or fig.savefig calls
+    try:
+        import re as _re
+        with open("chatgpt_code.py", "r", encoding="utf-8") as _f:
+            _code = _f.read()
+        # Remove ', quality=...' from savefig calls (e.g., plt.savefig(..., quality=95))
+        _code = _re.sub(r'(savefig\s*\([^)]*?),\s*quality\s*=\s*[^,)]+', r'\1', _code)
+        with open("chatgpt_code.py", "w", encoding="utf-8") as _f:
+            _f.write(_code)
+    except Exception as _e:
+        print(f"Warning: failed to clean 'quality=' from savefig: {_e}")
 
     # Execute the code
     try:
@@ -616,6 +642,30 @@ async def aianalyst(
             text=True,
             timeout=120
         )
+
+        # Check for missing module error and try to install
+        missing_module = None
+        if result.returncode != 0:
+            match = re.search(r"No module named '([^']+)'", result.stderr)
+            if match:
+                missing_module = match.group(1)
+                print(f"⚠️ Detected missing module: {missing_module}. Attempting to install...")
+                try:
+                    subprocess.run(
+                        ["pip", "install", missing_module],
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
+                    # Re-run the script after installing the module
+                    result = subprocess.run(
+                        ["python", "chatgpt_code.py"],
+                        capture_output=True,
+                        text=True,
+                        timeout=120
+                    )
+                except Exception as e:
+                    print(f"❌ Failed to install missing module {missing_module}: {e}")
 
         if result.returncode == 0:
             stdout = result.stdout.strip()
@@ -657,6 +707,29 @@ async def aianalyst(
                     text=True,
                     timeout=120
                 )
+                # Check for missing module error and try to install
+                missing_module = None
+                if result.returncode != 0:
+                    match = re.search(r"No module named '([^']+)'", result.stderr)
+                    if match:
+                        missing_module = match.group(1)
+                        print(f"⚠️ Detected missing module during fix: {missing_module}. Attempting to install...")
+                        try:
+                            subprocess.run(
+                                ["pip", "install", missing_module],
+                                capture_output=True,
+                                text=True,
+                                timeout=60
+                            )
+                            # Re-run the script after installing the module
+                            result = subprocess.run(
+                                ["python", "chatgpt_code.py"],
+                                capture_output=True,
+                                text=True,
+                                timeout=120
+                            )
+                        except Exception as e:
+                            print(f"❌ Failed to install missing module {missing_module}: {e}")
                 error_context = f"Return code: {result.returncode}\nStderr: {result.stderr}\nStdout: {result.stdout}"
             except Exception as e:
                 error_context = f"Execution failed with exception: {str(e)}"
@@ -698,7 +771,12 @@ async def aianalyst(
             )
             
             horizon_fix = await ping_horizon(fix_prompt, "You are a helpful Python code fixer.")
-            fixed_code = horizon_fix["choices"][0]["message"]["content"]
+            if "candidates" in horizon_fix:
+                fixed_code = horizon_fix["candidates"][0]["content"]["parts"][0]["text"]
+            elif "choices" in horizon_fix:
+                fixed_code = horizon_fix["choices"][0]["message"]["content"]
+            else:
+                raise ValueError(f"Unexpected Horizon fix response format: {horizon_fix}")
             
             # Clean the fixed code
             lines = fixed_code.split('\n')
@@ -716,6 +794,16 @@ async def aianalyst(
             
             with open("chatgpt_code.py", "w", encoding="utf-8") as code_file:
                 code_file.write(cleaned_fixed_code)
+            # Remove any 'quality=' parameter from plt.savefig or fig.savefig calls
+            try:
+                import re as _re
+                with open("chatgpt_code.py", "r", encoding="utf-8") as _f:
+                    _code = _f.read()
+                _code = _re.sub(r'(savefig\s*\([^)]*?),\s*quality\s*=\s*[^,)]+', r'\1', _code)
+                with open("chatgpt_code.py", "w", encoding="utf-8") as _f:
+                    _f.write(_code)
+            except Exception as _e:
+                print(f"Warning: failed to clean 'quality=' from savefig (fix): {_e}")
 
             # Test the fixed code
             result = subprocess.run(
@@ -724,6 +812,29 @@ async def aianalyst(
                 text=True,
                 timeout=120
             )
+            # Check for missing module error and try to install
+            missing_module = None
+            if result.returncode != 0:
+                match = re.search(r"No module named '([^']+)'", result.stderr)
+                if match:
+                    missing_module = match.group(1)
+                    print(f"⚠️ Detected missing module during fix code test: {missing_module}. Attempting to install...")
+                    try:
+                        subprocess.run(
+                            ["pip", "install", missing_module],
+                            capture_output=True,
+                            text=True,
+                            timeout=60
+                        )
+                        # Re-run the script after installing the module
+                        result = subprocess.run(
+                            ["python", "chatgpt_code.py"],
+                            capture_output=True,
+                            text=True,
+                            timeout=120
+                        )
+                    except Exception as e:
+                        print(f"❌ Failed to install missing module {missing_module}: {e}")
 
             if result.returncode == 0:
                 stdout = result.stdout.strip()

@@ -1,94 +1,50 @@
 {
   "provided_csv": null,
-  "scraped_data": [],
-  "database_files": [
+  "scraped_data": [
     {
-      "filename": "database_1",
-      "source_url": "s3://indian-high-court-judgments/metadata/parquet/year=*/court=*/bench=*/metadata.parquet?s3_region=ap-south-1",
-      "format": "parquet",
-      "schema": {
-        "columns": [
-          "court_code",
-          "title",
-          "description",
-          "judge",
-          "pdf_link",
-          "cnr",
-          "date_of_registration",
-          "decision_date",
-          "disposal_nature",
-          "court",
-          "raw_html",
-          "bench",
-          "year"
-        ],
-        "column_types": {
-          "court_code": "VARCHAR",
-          "title": "VARCHAR",
-          "description": "VARCHAR",
-          "judge": "VARCHAR",
-          "pdf_link": "VARCHAR",
-          "cnr": "VARCHAR",
-          "date_of_registration": "VARCHAR",
-          "decision_date": "DATE",
-          "disposal_nature": "VARCHAR",
-          "court": "VARCHAR",
-          "raw_html": "VARCHAR",
-          "bench": "VARCHAR",
-          "year": "BIGINT"
-        }
-      },
+      "filename": "data.csv",
+      "source_url": "https://en.wikipedia.org/wiki/List_of_highest-grossing_films",
+      "shape": [
+        50,
+        6
+      ],
+      "columns": [
+        "Rank",
+        "Peak",
+        "Title",
+        "Worldwide gross",
+        "Year",
+        "Ref"
+      ],
       "sample_data": [
         {
-          "court_code": "19~16",
-          "title": "CS/700/1947 of KRISHNA CHAND MULLICK Vs SMT. PANNA SUNDARI MULLICK",
-          "description": "THE HIGH COURT AT CALCUTTA ORDINARY ORIGINAL CIVIL JURISDICTION ORIGINAL SIDE IA NO. GA/6/2022 GA 1/2022 In CS/700/1947 CS 1140/1947 KRISHNA CHAND MULLICK Vs SMT. PANNA SUNDARI MULLICK & ORS. BEFORE: The Hon'ble Justice SUGATO MAJUMDAR Date : 14th December, 2022. APPEARANCE: Ms. Labanyasree",
-          "judge": "",
-          "pdf_link": "court/cnrorders/calcutta_original_side/orders/WBCHCO0000011947_1_2022-12-14.pdf",
-          "cnr": "WBCHCO0000011947",
-          "date_of_registration": "05-03-1947",
-          "decision_date": "1950-03-04 00:00:00",
-          "disposal_nature": "DISPOSED",
-          "court": "19_16",
-          "raw_html": "<button type='button' role='link' class='btn btn-link p-0 text-start' id='link_0' aria-label=\"CS/700/1947 of KRISHNA CHAND MULLICK .Array[93]. SMT. PANNA SUNDARI MULLICK pdf\"  class='noToken' href='#' onclick=javascript:open_pdf('0','','court/cnrorders/calcutta_original_side/orders/WBCHCO0000011947_1_2022-12-14.pdf#page=&search=%20'); ><font size='3'>CS/700/1947 of KRISHNA CHAND MULLICK Vs SMT. PANNA SUNDARI MULLICK</button></font><br> THE HIGH COURT AT CALCUTTA ORDINARY ORIGINAL CIVIL JURISDICTION ORIGINAL SIDE IA NO. GA/6/2022 GA 1/2022 In CS/700/1947 CS 1140/1947 KRISHNA CHAND MULLICK Vs SMT. PANNA SUNDARI MULLICK &amp; ORS. BEFORE: The Hon'ble Justice SUGATO MAJUMDAR Date : 14th December, 2022. APPEARANCE: Ms. Labanyasree<br><strong class='caseDetailsTD' ><span style='color:#212F3D'> CNR :</span><font color='green'> WBCHCO0000011947</font><span style='color:#212F3D' > | Date of registration :</span><font color='green'> 05-03-1947</font><span style='color:#212F3D' > | Decision Date :</span><font color='green'> 03-04-1950</font><span style='color:#212F3D' > | Disposal Nature :</span><font color='green'> DISPOSED</font><br><span style='opacity: 0.5;'>Court : Calcutta High Court</span></strong>",
-          "bench": "calcutta_original_side",
-          "year": 1950
+          "Rank": 1,
+          "Peak": 1,
+          "Title": "Avatar",
+          "Worldwide gross": 2923706026,
+          "Year": 2009,
+          "Ref": "[# 1][# 2]"
         },
         {
-          "court_code": "19~16",
-          "title": "CS/1460/1938 of KANAILAL DUTTA & ORS. Vs DEBENDRA CH. DUTTA & ORS.",
-          "description": "COURT AT CALCUTTA Ordinary Original Civil Jurisdiction ORIGINAL SIDE IA NO. GA/2/2003 (Old No: GA/2516/2003) In CS/1460/1938 Vs BEFORE: The Hon'ble JUSTICE RAVI KRISHAN KAPUR Date : 5th May, 2022. The Court: This application has been appearing in the Warning List. The names of the parties do not",
-          "judge": "HON'BLE JUSTICE PINAKI CHANDRA GHOSE",
-          "pdf_link": "court/cnrorders/calcutta_original_side/orders/WBCHCO0000011938_1_2022-05-05.pdf",
-          "cnr": "WBCHCO0000011938",
-          "date_of_registration": "01-01-1938",
-          "decision_date": "1950-02-02 00:00:00",
-          "disposal_nature": "DISPOSED",
-          "court": "19_16",
-          "raw_html": "<button type='button' role='link' class='btn btn-link p-0 text-start' id='link_0' aria-label=\"CS/1460/1938 of KANAILAL DUTTA & ORS. .Array[93]. DEBENDRA CH. DUTTA & ORS. pdf\"  class='noToken' href='#' onclick=javascript:open_pdf('0','','court/cnrorders/calcutta_original_side/orders/WBCHCO0000011938_1_2022-05-05.pdf#page=&search=%20'); ><font size='3'>CS/1460/1938 of KANAILAL DUTTA & ORS. Vs DEBENDRA CH. DUTTA & ORS.</button></font><br><strong>Judge : HON'BLE JUSTICE PINAKI CHANDRA GHOSE</strong><br> COURT AT CALCUTTA Ordinary Original Civil Jurisdiction ORIGINAL SIDE IA NO. GA/2/2003 (Old No: GA/2516/2003) In CS/1460/1938 Vs BEFORE: The Hon'ble JUSTICE RAVI KRISHAN KAPUR Date : 5th May, 2022. The Court: This application has been appearing in the Warning List. The names of the parties do not<br><strong class='caseDetailsTD' ><span style='color:#212F3D'> CNR :</span><font color='green'> WBCHCO0000011938</font><span style='color:#212F3D' > | Date of registration :</span><font color='green'> 01-01-1938</font><span style='color:#212F3D' > | Decision Date :</span><font color='green'> 02-02-1950</font><span style='color:#212F3D' > | Disposal Nature :</span><font color='green'> DISPOSED</font><br><span style='opacity: 0.5;'>Court : Calcutta High Court</span></strong>",
-          "bench": "calcutta_original_side",
-          "year": 1950
+          "Rank": 2,
+          "Peak": 1,
+          "Title": "Avengers: Endgame",
+          "Worldwide gross": 2797501328,
+          "Year": 2019,
+          "Ref": "[# 3][# 4]"
         },
         {
-          "court_code": "1~12",
-          "title": "OWP/73/2008 of DIRECTOR RURAL DEV. DEPTT. AND ORS Vs ZAHIDA AKHTER AND ANOTHER",
-          "description": "After notice HIGH COURT OF JAMMU AND KASHMIR AT SRINAGAR (Through Virtual Mode) OWP No. 733/2008 & IA Oriental Insurance Co. Ltd. \u2026. Petitioner/Appellant(s) Through:- Mr. Ateeb Kawoosa, Advocate V/s Bashir Ahmad Mir & ors. \u2026..Respondent(s) Through:- None Coram :",
-          "judge": "",
-          "pdf_link": "court/cnrorders/kashmirhc/orders/JKHC010046902008_1_2020-09-21.pdf",
-          "cnr": "JKHC010046902008",
-          "date_of_registration": "04-02-2008",
-          "decision_date": "1950-01-01 00:00:00",
-          "disposal_nature": "Disposed Off",
-          "court": "1_12",
-          "raw_html": "<button type='button' role='link' class='btn btn-link p-0 text-start' id='link_0' aria-label=\"OWP/73/2008 of DIRECTOR RURAL DEV. DEPTT. AND ORS .Array[93]. ZAHIDA AKHTER AND ANOTHER pdf\"  class='noToken' href='#' onclick=javascript:open_pdf('0','','court/cnrorders/kashmirhc/orders/JKHC010046902008_1_2020-09-21.pdf#page=&search=%20'); ><font size='3'>OWP/73/2008 of DIRECTOR RURAL DEV. DEPTT. AND ORS Vs ZAHIDA AKHTER AND ANOTHER</button></font><br> After notice HIGH COURT OF JAMMU AND KASHMIR AT SRINAGAR (Through Virtual Mode) OWP No. 733/2008 &amp; IA Oriental Insurance Co. Ltd. &hellip;. Petitioner/Appellant(s) Through:- Mr. Ateeb Kawoosa, Advocate V/s Bashir Ahmad Mir &amp; ors. &hellip;..Respondent(s) Through:- None Coram :<br><strong class='caseDetailsTD' ><span style='color:#212F3D'> CNR :</span><font color='green'> JKHC010046902008</font><span style='color:#212F3D' > | Date of registration :</span><font color='green'> 04-02-2008</font><span style='color:#212F3D' > | Decision Date :</span><font color='green'> 01-01-1950</font><span style='color:#212F3D' > | Disposal Nature :</span><font color='green'> Disposed Off</font><br><span style='opacity: 0.5;'>Court : High Court of Jammu and Kashmir</span></strong>",
-          "bench": "kashmirhc",
-          "year": 1950
+          "Rank": 3,
+          "Peak": 3,
+          "Title": "Avatar: The Way of Water",
+          "Worldwide gross": 2320250281,
+          "Year": 2022,
+          "Ref": "[# 5][# 6]"
         }
       ],
-      "description": "This S3 path contains the structured metadata for all high court judgments. It is needed to identify the high court with the most cases between 2019-2022 and to calculate the delay between registration and decision dates for regression analysis.",
-      "access_query": "SELECT * FROM read_parquet('s3://indian-high-court-judgments/metadata/parquet/year=*/court=*/bench=*/metadata.parquet?s3_region=ap-south-1') ",
-      "total_columns": 13
+      "description": "Scraped data from https://en.wikipedia.org/wiki/List_of_highest-grossing_films"
     }
   ],
+  "database_files": [],
   "total_sources": 1
 }

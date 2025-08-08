@@ -1,106 +1,98 @@
 import pandas as pd
 import json
-import duckdb
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import io
 import base64
 
-# --- Main Analysis Function ---
-def analyze_high_court_data():
-    """
-    Analyzes the Indian High Court Judgements dataset to answer three specific questions.
-    """
-    # Setup DuckDB connection with necessary extensions
-    conn = duckdb.connect(database=':memory:', read_only=False)
-    conn.execute("INSTALL httpfs; LOAD httpfs;")
-    conn.execute("INSTALL parquet; LOAD parquet;")
+# This script performs an analysis on the list of highest-grossing films.
+# It reads data from a local CSV file, processes it to answer several questions,
+# and generates a plot. The final output is a JSON array of strings.
 
-    # Define the S3 path to the Parquet data
-    s3_path = "'s3://indian-high-court-judgments/metadata/parquet/year=*/court=*/bench=*/metadata.parquet?s3_region=ap-south-1'"
+# --- Data Loading and Preparation ---
+# Load the dataset from the provided CSV file into a pandas DataFrame.
+# The data summary indicates the columns are already in a clean, numeric format where appropriate.
+# We will ensure the data types are correct for robust calculations.
+try:
+    df = pd.read_csv('data.csv')
+    # Explicitly convert columns to their expected numeric types to prevent errors.
+    df['Worldwide gross'] = pd.to_numeric(df['Worldwide gross'])
+    df['Year'] = pd.to_numeric(df['Year'])
+    df['Rank'] = pd.to_numeric(df['Rank'])
+    df['Peak'] = pd.to_numeric(df['Peak'])
+except (FileNotFoundError, KeyError) as e:
+    # Handle potential errors during file loading or column access.
+    print(json.dumps({"error": f"Failed to load or process data.csv: {e}"}))
+    exit()
 
-    # --- Question 1: Which high court disposed the most cases from 2019 - 2022? ---
-    q1_query = f"""
-        SELECT court
-        FROM read_parquet({s3_path})
-        WHERE year >= 2019 AND year <= 2022
-        GROUP BY court
-        ORDER BY COUNT(*) DESC
-        LIMIT 1;
-    """
-    most_active_court = conn.execute(q1_query).fetchone()[0]
+# --- Workflow: Answering the Questions ---
 
-    # --- Question 2: What's the regression slope of the date_of_registration - decision_date by year in the court=33_10? ---
-    # The query calculates delay_days and then finds the regression slope of delay_days vs. year.
-    # It handles date conversion and filters out invalid or negative delays.
-    q2_query = f"""
-        SELECT
-            REGR_SLOPE(
-                (epoch(decision_date) - epoch(try_strptime(date_of_registration, '%d-%m-%Y'))) / 86400.0,
-                CAST(year AS DOUBLE)
-            ) AS slope
-        FROM read_parquet({s3_path})
-        WHERE court = '33_10'
-          AND try_strptime(date_of_registration, '%d-%m-%Y') IS NOT NULL
-          AND decision_date >= try_strptime(date_of_registration, '%d-%m-%Y');
-    """
-    regression_slope = conn.execute(q2_query).fetchone()[0]
+# **Question 1: How many $2 bn movies were released before 2000?**
+# 1. Filter rows where 'Worldwide gross' is >= 2,000,000,000.
+# 2. From the filtered data, select rows where 'Year' is < 2000.
+# 3. Count the number of resulting rows.
+movies_over_2bn_before_2000 = df[(df['Worldwide gross'] >= 2_000_000_000) & (df['Year'] < 2000)]
+answer1 = str(len(movies_over_2bn_before_2000))
 
-    # --- Question 3: Plot the year and # of days of delay ---
-    # Fetches the data needed for plotting. A LIMIT is used to keep the plot readable and the data size small.
-    q3_query = f"""
-        SELECT
-            year,
-            (epoch(decision_date) - epoch(try_strptime(date_of_registration, '%d-%m-%Y'))) / 86400.0 AS delay_days
-        FROM read_parquet({s3_path})
-        WHERE court = '33_10'
-          AND try_strptime(date_of_registration, '%d-%m-%Y') IS NOT NULL
-          AND decision_date >= try_strptime(date_of_registration, '%d-%m-%Y')
-        LIMIT 5000;
-    """
-    plot_df = conn.execute(q3_query).fetchdf()
+# **Question 2: Which is the earliest film that grossed over $1.5 bn?**
+# 1. Filter rows where 'Worldwide gross' is >= 1,500,000,000.
+# 2. Sort the filtered data by 'Year' in ascending order.
+# 3. Select the first row and retrieve its 'Title'.
+movies_over_1_5bn = df[df['Worldwide gross'] >= 1_500_000_000]
+# To handle cases where the dataframe might be empty, we use a try-except block.
+if not movies_over_1_5bn.empty:
+    earliest_movie = movies_over_1_5bn.sort_values(by='Year', ascending=True).iloc[0]
+    answer2 = str(earliest_movie['Title'])
+else:
+    answer2 = "No film found"
 
-    # Generate the plot
-    plt.style.use('seaborn-v0_8-whitegrid')
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    
-    sns.regplot(
-        x='year', 
-        y='delay_days', 
-        data=plot_df, 
-        ax=ax,
-        scatter_kws={'alpha': 0.2, 's': 15, 'edgecolor': 'none'},
-        line_kws={'color': '#E53935', 'linewidth': 2}
-    )
-    
-    ax.set_title('Case Delay vs. Decision Year for Court 33_10', fontsize=12)
-    ax.set_xlabel('Decision Year', fontsize=10)
-    ax.set_ylabel('Delay (Registration to Decision in Days)', fontsize=10)
-    ax.tick_params(axis='both', which='major', labelsize=8)
-    plt.tight_layout()
+# **Question 3: What's the correlation between the Rank and Peak?**
+# 1. Select the 'Rank' and 'Peak' columns.
+# 2. Calculate the Pearson correlation coefficient between them.
+correlation = df['Rank'].corr(df['Peak'])
+answer3 = str(correlation)
 
-    # Encode plot to base64 data URI
-    buf = io.BytesIO()
-    plt.savefig(buf, format='webp', dpi=75) # Use webp for efficient compression
-    buf.seek(0)
-    img_b64 = base64.b64encode(buf.read()).decode('utf-8')
-    plot_uri = f"data:image/webp;base64,{img_b64}"
-    plt.close(fig)
-    
-    # Close the database connection
-    conn.close()
+# **Question 4: Draw a scatterplot of Rank and Peak with a regression line.**
+# 1. Create a scatterplot using seaborn's regplot for 'Rank' vs 'Peak'.
+# 2. Style the regression line to be dotted and red.
+# 3. Render the plot into an in-memory PNG image.
+# 4. Encode the image data into a base64 string and format it as a data URI.
+plt.style.use('seaborn-v0_8-whitegrid')
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.regplot(
+    x='Rank',
+    y='Peak',
+    data=df,
+    ax=ax,
+    line_kws={'color': 'red', 'linestyle': '--'},
+    scatter_kws={'alpha': 0.7}
+)
+ax.set_title('Rank vs. Peak of Highest-Grossing Films')
+ax.set_xlabel('Overall Rank')
+ax.set_ylabel('Peak Rank Achieved')
 
-    # --- Assemble the final JSON object ---
-    final_result = {
-        "Which high court disposed the most cases from 2019 - 2022?": most_active_court,
-        "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?": regression_slope,
-        "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": plot_uri
-    }
+# Save the plot to a bytes buffer
+buf = io.BytesIO()
+plt.savefig(buf, format='png', bbox_inches='tight')
+buf.seek(0)
+plt.close(fig) # Close the figure to free up memory
 
-    return final_result
+# Encode the image to base64
+image_base64_string = base64.b64encode(buf.getvalue()).decode('utf-8')
+buf.close()
 
-if __name__ == '__main__':
-    # Execute the analysis and print the result as a JSON string
-    result_json = analyze_high_court_data()
-    print(json.dumps(result_json, indent=2))
+# Format as a data URI
+answer4 = f"data:image/png;base64,{image_base64_string}"
+
+# --- Final Output ---
+# Consolidate all answers into a list of strings.
+final_answers = [
+    answer1,
+    answer2,
+    answer3,
+    answer4
+]
+
+# Print the final result as a JSON array, as required.
+print(json.dumps(final_answers, indent=4))

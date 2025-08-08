@@ -588,6 +588,23 @@ async def aianalyst(
         "DATA SUMMARY: " + json.dumps(make_json_serializable(data_summary), indent=2)
     )
 
+    # Build explicit allowed files list to prevent model hallucinating file paths
+    allowed_paths = []
+    if provided_csv_info:
+        allowed_paths.append(provided_csv_info.get('filename'))
+    for s in scraped_data:
+        if 'filename' in s:
+            allowed_paths.append(s['filename'])
+    for db in database_info:
+        if 'source_url' in db:
+            allowed_paths.append(db['source_url'])
+    # Deduplicate and format
+    allowed_paths = list(dict.fromkeys([p for p in allowed_paths if p]))
+    allowed_files_text = "ALLOWED_DATA_SOURCES:\n" + "\n".join(allowed_paths) if allowed_paths else "ALLOWED_DATA_SOURCES: NONE"
+
+    # Append allowed files to the LLM context and instruct the model to not access any other files
+    context += "\n\n" + "IMPORTANT: You may only read from the following data sources. Do NOT read or write any other file paths.\n" + allowed_files_text
+
     horizon_response = await ping_horizon(context, "You are a great Python code developer. Who write final code for the answer and our workflow using all the detail provided to you")
 
     # Clean the code response (remove markdown formatting)
@@ -633,6 +650,46 @@ async def aianalyst(
             _f.write(_code)
     except Exception as _e:
         print(f"Warning: failed to clean 'quality=' from savefig: {_e}")
+
+    # --- Sanitize generated code: block or replace disallowed file accesses ---
+    try:
+        with open("chatgpt_code.py", "r", encoding="utf-8") as _f:
+            _code = _f.read()
+        _modified = False
+        # Patterns to check: pd.read_csv('...'), pd.read_parquet('...'), read_csv_auto('...'), read_parquet('...'), open('...')
+        patterns = [
+            (r"pd\.read_csv\([\'\"]([^\'\"]+)[\'\"]", 'csv'),
+            (r"pd\.read_parquet\([\'\"]([^\'\"]+)[\'\"]", 'parquet'),
+            (r"read_csv_auto\([\'\"]([^\'\"]+)[\'\"]", 'csv'),
+            (r"read_parquet\([\'\"]([^\'\"]+)[\'\"]", 'parquet'),
+            (r"open\([\'\"]([^\'\"]+)[\'\"]", 'open')
+        ]
+        for patt, ptype in patterns:
+            for m in re.finditer(patt, _code):
+                path = m.group(1)
+                # If path is not explicitly allowed, replace or block
+                if path not in allowed_paths and os.path.basename(path) not in allowed_paths:
+                    _modified = True
+                    if provided_csv_info and provided_csv_info.get('filename'):
+                        safe_repl = provided_csv_info.get('filename')
+                        # replace the path string with safe_repl
+                        _code = _code.replace(path, safe_repl)
+                    else:
+                        # Insert a raised error near the offending call and comment out the call
+                        start = m.start()
+                        # find start of line
+                        line_start = _code.rfind('\n', 0, start) + 1
+                        line_end = _code.find('\n', start)
+                        if line_end == -1:
+                            line_end = len(_code)
+                        offending_line = _code[line_start:line_end]
+                        error_comment = f"# REMOVED DISALLOWED PATH: {path} -- original line commented out\nraise RuntimeError('Disallowed file access removed: {path}')\n"
+                        _code = _code[:line_start] + error_comment + '# ' + offending_line + '\n' + _code[line_end+1:]
+        if _modified:
+            with open("chatgpt_code.py", "w", encoding="utf-8") as _f:
+                _f.write(_code)
+    except Exception as _e:
+        print(f"Warning: failed to sanitize file paths in generated code: {_e}")
 
     # Execute the code
     try:

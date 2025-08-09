@@ -569,10 +569,31 @@ async def aianalyst(
 
     print(f"📋 Data Summary: {data_summary['total_sources']} total sources")
 
+    # Utility to safely extract Gemini text
+    def extract_gemini_text(response: dict) -> str:
+        """
+        Safely extract the first text part from a Gemini API response.
+        Returns an empty string if the structure is unexpected.
+        """
+        try:
+            candidates = response.get("candidates", [])
+            if not candidates:
+                return ""
+            content = candidates[0].get("content", {})
+            parts = content.get("parts", [])
+            if not parts:
+                return ""
+            text = parts[0].get("text", "")
+            return text if isinstance(text, str) else ""
+        except Exception as e:
+            # logger.warning(f"Error extracting Gemini text: {e} | Response: {response}")
+            print(f"Warning: Error extracting Gemini text: {e} | Response: {response}")
+            return ""
+
     # Break down tasks
     task_breaker_instructions = read_prompt_file("prompts/task_breaker.txt")
     gemini_response = await ping_gemini(question_text, task_breaker_instructions)
-    task_breaked = gemini_response["candidates"][0]["content"]["parts"][0]["text"]
+    task_breaked = extract_gemini_text(gemini_response)
 
     with open("broken_down_tasks.txt", "w", encoding="utf-8") as f:
         f.write(str(task_breaked))
@@ -604,6 +625,7 @@ async def aianalyst(
 
     # Append allowed files to the LLM context and instruct the model to not access any other files
     context += "\n\n" + "IMPORTANT: You may only read from the following data sources. Do NOT read or write any other file paths.\n" + allowed_files_text
+    context += "\n\nIMPORTANT: Do NOT include any comments in the code output. Provide only pure Python code without any inline or block comments."
 
     horizon_response = await ping_horizon(context, "You are a great Python code developer. Who write final code for the answer and our workflow using all the detail provided to you")
 

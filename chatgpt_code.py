@@ -1,98 +1,98 @@
 import pandas as pd
 import json
-import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 import io
 import base64
 
-# This script performs an analysis on the list of highest-grossing films.
-# It reads data from a local CSV file, processes it to answer several questions,
-# and generates a plot. The final output is a JSON array of strings.
+# --- Main Analysis Function ---
+def analyze_sales_data(file_path):
+    """
+    Analyzes sales data from a CSV file to calculate key metrics and generate charts.
 
-# --- Data Loading and Preparation ---
-# Load the dataset from the provided CSV file into a pandas DataFrame.
-# The data summary indicates the columns are already in a clean, numeric format where appropriate.
-# We will ensure the data types are correct for robust calculations.
-try:
-    df = pd.read_csv('data.csv')
-    # Explicitly convert columns to their expected numeric types to prevent errors.
-    df['Worldwide gross'] = pd.to_numeric(df['Worldwide gross'])
-    df['Year'] = pd.to_numeric(df['Year'])
-    df['Rank'] = pd.to_numeric(df['Rank'])
-    df['Peak'] = pd.to_numeric(df['Peak'])
-except (FileNotFoundError, KeyError) as e:
-    # Handle potential errors during file loading or column access.
-    print(json.dumps({"error": f"Failed to load or process data.csv: {e}"}))
-    exit()
+    Args:
+        file_path (str): The path to the input CSV file.
 
-# --- Workflow: Answering the Questions ---
+    Returns:
+        dict: A dictionary containing the analysis results in JSON format.
+    """
+    # Load the dataset from the provided CSV file
+    df = pd.read_csv(file_path)
 
-# **Question 1: How many $2 bn movies were released before 2000?**
-# 1. Filter rows where 'Worldwide gross' is >= 2,000,000,000.
-# 2. From the filtered data, select rows where 'Year' is < 2000.
-# 3. Count the number of resulting rows.
-movies_over_2bn_before_2000 = df[(df['Worldwide gross'] >= 2_000_000_000) & (df['Year'] < 2000)]
-answer1 = str(len(movies_over_2bn_before_2000))
+    # Ensure the 'date' column is in datetime format for time-series analysis
+    df['date'] = pd.to_datetime(df['date'])
 
-# **Question 2: Which is the earliest film that grossed over $1.5 bn?**
-# 1. Filter rows where 'Worldwide gross' is >= 1,500,000,000.
-# 2. Sort the filtered data by 'Year' in ascending order.
-# 3. Select the first row and retrieve its 'Title'.
-movies_over_1_5bn = df[df['Worldwide gross'] >= 1_500_000_000]
-# To handle cases where the dataframe might be empty, we use a try-except block.
-if not movies_over_1_5bn.empty:
-    earliest_movie = movies_over_1_5bn.sort_values(by='Year', ascending=True).iloc[0]
-    answer2 = str(earliest_movie['Title'])
-else:
-    answer2 = "No film found"
+    # --- Question 1: What is the total sales across all regions? ---
+    total_sales = df['sales'].sum()
 
-# **Question 3: What's the correlation between the Rank and Peak?**
-# 1. Select the 'Rank' and 'Peak' columns.
-# 2. Calculate the Pearson correlation coefficient between them.
-correlation = df['Rank'].corr(df['Peak'])
-answer3 = str(correlation)
+    # --- Question 2: Which region has the highest total sales? ---
+    sales_by_region = df.groupby('region')['sales'].sum()
+    top_region = sales_by_region.idxmax()
 
-# **Question 4: Draw a scatterplot of Rank and Peak with a regression line.**
-# 1. Create a scatterplot using seaborn's regplot for 'Rank' vs 'Peak'.
-# 2. Style the regression line to be dotted and red.
-# 3. Render the plot into an in-memory PNG image.
-# 4. Encode the image data into a base64 string and format it as a data URI.
-plt.style.use('seaborn-v0_8-whitegrid')
-fig, ax = plt.subplots(figsize=(8, 6))
-sns.regplot(
-    x='Rank',
-    y='Peak',
-    data=df,
-    ax=ax,
-    line_kws={'color': 'red', 'linestyle': '--'},
-    scatter_kws={'alpha': 0.7}
-)
-ax.set_title('Rank vs. Peak of Highest-Grossing Films')
-ax.set_xlabel('Overall Rank')
-ax.set_ylabel('Peak Rank Achieved')
+    # --- Question 3: What is the correlation between day of month and sales? ---
+    df['day_of_month'] = df['date'].dt.day
+    day_sales_correlation = df['day_of_month'].corr(df['sales'])
 
-# Save the plot to a bytes buffer
-buf = io.BytesIO()
-plt.savefig(buf, format='png', bbox_inches='tight')
-buf.seek(0)
-plt.close(fig) # Close the figure to free up memory
+    # --- Question 4: Plot total sales by region as a bar chart. ---
+    plt.figure(figsize=(8, 5))
+    sales_by_region.sort_values(ascending=False).plot(kind='bar', color='blue')
+    plt.title('Total Sales by Region')
+    plt.xlabel('Region')
+    plt.ylabel('Total Sales')
+    plt.xticks(rotation=0)
+    plt.tight_layout()
+    
+    bar_chart_buf = io.BytesIO()
+    plt.savefig(bar_chart_buf, format='png')
+    plt.close()
+    bar_chart_buf.seek(0)
+    bar_chart_base64 = base64.b64encode(bar_chart_buf.getvalue()).decode('utf-8')
 
-# Encode the image to base64
-image_base64_string = base64.b64encode(buf.getvalue()).decode('utf-8')
-buf.close()
+    # --- Question 5: What is the median sales amount across all orders? ---
+    median_sales = df['sales'].median()
 
-# Format as a data URI
-answer4 = f"data:image/png;base64,{image_base64_string}"
+    # --- Question 6: What is the total sales tax if the tax rate is 10%? ---
+    tax_rate = 0.10
+    total_sales_tax = total_sales * tax_rate
 
-# --- Final Output ---
-# Consolidate all answers into a list of strings.
-final_answers = [
-    answer1,
-    answer2,
-    answer3,
-    answer4
-]
+    # --- Question 7: Plot cumulative sales over time as a line chart. ---
+    df_sorted = df.sort_values('date')
+    df_sorted['cumulative_sales'] = df_sorted['sales'].cumsum()
 
-# Print the final result as a JSON array, as required.
-print(json.dumps(final_answers, indent=4))
+    plt.figure(figsize=(10, 5))
+    plt.plot(df_sorted['date'], df_sorted['cumulative_sales'], color='red', marker='o', linestyle='-')
+    plt.title('Cumulative Sales Over Time')
+    plt.xlabel('Date')
+    plt.ylabel('Cumulative Sales')
+    plt.grid(True)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    
+    cumulative_chart_buf = io.BytesIO()
+    plt.savefig(cumulative_chart_buf, format='png')
+    plt.close()
+    cumulative_chart_buf.seek(0)
+    cumulative_sales_chart_base64 = base64.b64encode(cumulative_chart_buf.getvalue()).decode('utf-8')
+
+    # --- Assemble the final JSON object ---
+    result = {
+        "total_sales": float(total_sales),
+        "top_region": top_region,
+        "day_sales_correlation": float(day_sales_correlation) if pd.notna(day_sales_correlation) else None,
+        "bar_chart": bar_chart_base64,
+        "median_sales": float(median_sales),
+        "total_sales_tax": float(total_sales_tax),
+        "cumulative_sales_chart": cumulative_sales_chart_base64
+    }
+    
+    return result
+
+# --- Execution ---
+if __name__ == '__main__':
+    # The filename is taken from the ALLOWED_DATA_SOURCES in the problem description
+    csv_file_path = 'ProvidedCSV.csv'
+    
+    # Perform the analysis
+    analysis_result = analyze_sales_data(csv_file_path)
+    
+    # Print the final result as a JSON string
+    print(json.dumps(analysis_result, indent=4))

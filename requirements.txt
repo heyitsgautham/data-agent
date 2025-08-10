@@ -10,3 +10,9 @@ python-dotenv
 uvicorn
 lxml
 python-multipart
+numpy
+pandas
+matplotlib
+seaborn
+plotly
+scikit-learn

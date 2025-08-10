@@ -1,6 +1,50 @@
 {
   "provided_csv": null,
-  "scraped_data": [],
+  "scraped_data": [
+    {
+      "filename": "data.csv",
+      "source_url": "https://en.wikipedia.org/wiki/List_of_highest-grossing_films",
+      "shape": [
+        50,
+        6
+      ],
+      "columns": [
+        "Rank",
+        "Peak",
+        "Title",
+        "Worldwide gross",
+        "Year",
+        "Ref"
+      ],
+      "sample_data": [
+        {
+          "Rank": 1,
+          "Peak": 1,
+          "Title": "Avatar",
+          "Worldwide gross": 2923706026,
+          "Year": 2009,
+          "Ref": "[# 1][# 2]"
+        },
+        {
+          "Rank": 2,
+          "Peak": 1,
+          "Title": "Avengers: Endgame",
+          "Worldwide gross": 2797501328,
+          "Year": 2019,
+          "Ref": "[# 3][# 4]"
+        },
+        {
+          "Rank": 3,
+          "Peak": 3,
+          "Title": "Avatar: The Way of Water",
+          "Worldwide gross": 2320250281,
+          "Year": 2022,
+          "Ref": "[# 5][# 6]"
+        }
+      ],
+      "description": "Scraped data from https://en.wikipedia.org/wiki/List_of_highest-grossing_films"
+    }
+  ],
   "database_files": [],
-  "total_sources": 0
+  "total_sources": 1
 }

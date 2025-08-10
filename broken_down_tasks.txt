@@ -1,25 +1,22 @@
-```json
-{
-  "Which high court disposed the most cases from 2019 - 2022?": [
-    "1. Filter data where the `year` column is greater than or equal to 2019 and less than or equal to 2022.",
-    "2. Group the filtered data by the `court` column.",
-    "3. Count the number of rows in each group and name the result `case_count`.",
-    "4. Sort the results in descending order by `case_count`.",
-    "5. Return the `court` name from the top row."
-  ],
-  "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?": [
-    "1. Filter data where the `court` column equals '33_10'.",
-    "2. For each row, calculate a new column `delay_days` as the difference in days between the `decision_date` and `date_of_registration` columns.",
-    "3. Group the data by the `year` column and calculate the average of `delay_days` for each year, creating a new dataset with `year` and `avg_delay` columns.",
-    "4. Calculate the slope of the linear regression line with `year` as the independent variable (X) and `avg_delay` as the dependent variable (Y).",
-    "5. Return the calculated slope value."
-  ],
-  "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": [
-    "1. Filter data where the `court` column equals '33_10'.",
-    "2. For each `year`, calculate the average number of days between `decision_date` and `date_of_registration`, naming the result `avg_delay`.",
-    "3. Generate a scatter plot with the `year` column on the x-axis and the calculated `avg_delay` on the y-axis.",
-    "4. Overlay a linear regression line on the plot using the `year` and `avg_delay` data.",
-    "5. Encode the final plot as a WEBP image and return it as a data URI string with the prefix 'data:image/webp;base64,'."
-  ]
-}
-```
+*   **Question 1: How many $2 bn movies were released before 2000?**
+    1.  Filter rows where the `Worldwide gross` column is greater than or equal to 2000000000.
+    2.  From the result, filter rows where the `Year` column is less than 2000.
+    3.  Count the number of rows in the final filtered dataset.
+    4.  Return the count as the answer.
+
+*   **Question 2: Which is the earliest film that grossed over $1.5 bn?**
+    1.  Filter rows where the `Worldwide gross` column is greater than 1500000000.
+    2.  Sort the filtered data by the `Year` column in ascending order.
+    3.  Select the `Title` value from the first row of the sorted data.
+    4.  Return the selected title as the answer.
+
+*   **Question 3: What's the correlation between the Rank and Peak?**
+    1.  Select the `Rank` and `Peak` columns.
+    2.  Calculate the Pearson correlation coefficient between the `Rank` column and the `Peak` column.
+    3.  Return the calculated correlation coefficient as the answer.
+
+*   **Question 4: Draw a scatterplot of Rank and Peak along with a dotted red regression line through it.**
+    1.  Create a scatter plot with the `Rank` column as the x-axis and the `Peak` column as the y-axis.
+    2.  Compute and overlay a linear regression line on the plot, formatted as a dotted red line.
+    3.  Export the complete plot as a PNG image.
+    4.  Encode the PNG image to a base64 string and format it as a data URI (`"data:image/png;base64,..."`).

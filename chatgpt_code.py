@@ -1,98 +1,91 @@
+
 import pandas as pd
 import json
+import duckdb
+import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 import io
 import base64
 
-# --- Main Analysis Function ---
-def analyze_sales_data(file_path):
-    """
-    Analyzes sales data from a CSV file to calculate key metrics and generate charts.
+conn = duckdb.connect(database=':memory:', read_only=False)
+conn.execute("INSTALL httpfs; LOAD httpfs;")
+conn.execute("INSTALL parquet; LOAD parquet;")
 
-    Args:
-        file_path (str): The path to the input CSV file.
+S3_PATH = "'s3://indian-high-court-judgments/metadata/parquet/year=*/court=*/bench=*/metadata.parquet?s3_region=ap-south-1'"
 
-    Returns:
-        dict: A dictionary containing the analysis results in JSON format.
-    """
-    # Load the dataset from the provided CSV file
-    df = pd.read_csv(file_path)
+query1 = f"""
+SELECT
+    court
+FROM read_parquet({S3_PATH})
+WHERE
+    year >= 2019 AND year <= 2022 AND disposal_nature IS NOT NULL
+GROUP BY
+    court
+ORDER BY
+    COUNT(*) DESC
+LIMIT 1;
+"""
+most_cases_court_df = conn.execute(query1).fetchdf()
+most_cases_court = most_cases_court_df['court'].iloc[0] if not most_cases_court_df.empty else None
 
-    # Ensure the 'date' column is in datetime format for time-series analysis
-    df['date'] = pd.to_datetime(df['date'])
+query2 = f"""
+SELECT
+    year,
+    AVG(DATE_DIFF('day', STRPTIME(date_of_registration, '%d-%m-%Y'), CAST(decision_date AS DATE))) AS avg_delay_days
+FROM read_parquet({S3_PATH})
+WHERE
+    court = '33_10'
+    AND date_of_registration IS NOT NULL
+    AND decision_date IS NOT NULL
+    AND TRY_STRPTIME(date_of_registration, '%d-%m-%Y') IS NOT NULL
+GROUP BY
+    year
+HAVING
+    COUNT(*) > 1 
+ORDER BY
+    year;
+"""
 
-    # --- Question 1: What is the total sales across all regions? ---
-    total_sales = df['sales'].sum()
+query3 = f"""
+SELECT * 
+FROM read_parquet({S3_PATH})
+"""
+delay_data_df = conn.execute(query2).fetchdf().dropna()
 
-    # --- Question 2: Which region has the highest total sales? ---
-    sales_by_region = df.groupby('region')['sales'].sum()
-    top_region = sales_by_region.idxmax()
+regression_slope = 0.0
+plot_base64 = ""
 
-    # --- Question 3: What is the correlation between day of month and sales? ---
-    df['day_of_month'] = df['date'].dt.day
-    day_sales_correlation = df['day_of_month'].corr(df['sales'])
+if not delay_data_df.empty and len(delay_data_df) > 1:
+    x = delay_data_df['year']
+    y = delay_data_df['avg_delay_days']
+    slope, _ = np.polyfit(x, y, 1)
+    regression_slope = slope
 
-    # --- Question 4: Plot total sales by region as a bar chart. ---
-    plt.figure(figsize=(8, 5))
-    sales_by_region.sort_values(ascending=False).plot(kind='bar', color='blue')
-    plt.title('Total Sales by Region')
-    plt.xlabel('Region')
-    plt.ylabel('Total Sales')
-    plt.xticks(rotation=0)
+    plt.figure(figsize=(6, 4))
+    sns.set_style("whitegrid")
+    ax = sns.regplot(data=delay_data_df, x='year', y='avg_delay_days',
+                     scatter_kws={'s': 20, 'alpha': 0.7},
+                     line_kws={'color': 'red', 'linewidth': 2})
+    ax.set_title('Avg. Case Delay by Year (Court 33_10)', fontsize=10)
+    ax.set_xlabel('Year', fontsize=8)
+    ax.set_ylabel('Average Delay (Days)', fontsize=8)
     plt.tight_layout()
-    
-    bar_chart_buf = io.BytesIO()
-    plt.savefig(bar_chart_buf, format='png')
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='webp', dpi=75)
     plt.close()
-    bar_chart_buf.seek(0)
-    bar_chart_base64 = base64.b64encode(bar_chart_buf.getvalue()).decode('utf-8')
+    buf.seek(0)
+    encoded_string = base64.b64encode(buf.read()).decode('utf-8')
+    plot_base64 = f"data:image/webp;base64,{encoded_string}"
 
-    # --- Question 5: What is the median sales amount across all orders? ---
-    median_sales = df['sales'].median()
+conn.close()
 
-    # --- Question 6: What is the total sales tax if the tax rate is 10%? ---
-    tax_rate = 0.10
-    total_sales_tax = total_sales * tax_rate
+result = {
+  "Which high court disposed the most cases from 2019 - 2022?": most_cases_court,
+  "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?": regression_slope,
+  "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": plot_base64
+}
 
-    # --- Question 7: Plot cumulative sales over time as a line chart. ---
-    df_sorted = df.sort_values('date')
-    df_sorted['cumulative_sales'] = df_sorted['sales'].cumsum()
-
-    plt.figure(figsize=(10, 5))
-    plt.plot(df_sorted['date'], df_sorted['cumulative_sales'], color='red', marker='o', linestyle='-')
-    plt.title('Cumulative Sales Over Time')
-    plt.xlabel('Date')
-    plt.ylabel('Cumulative Sales')
-    plt.grid(True)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    
-    cumulative_chart_buf = io.BytesIO()
-    plt.savefig(cumulative_chart_buf, format='png')
-    plt.close()
-    cumulative_chart_buf.seek(0)
-    cumulative_sales_chart_base64 = base64.b64encode(cumulative_chart_buf.getvalue()).decode('utf-8')
-
-    # --- Assemble the final JSON object ---
-    result = {
-        "total_sales": float(total_sales),
-        "top_region": top_region,
-        "day_sales_correlation": float(day_sales_correlation) if pd.notna(day_sales_correlation) else None,
-        "bar_chart": bar_chart_base64,
-        "median_sales": float(median_sales),
-        "total_sales_tax": float(total_sales_tax),
-        "cumulative_sales_chart": cumulative_sales_chart_base64
-    }
-    
-    return result
-
-# --- Execution ---
-if __name__ == '__main__':
-    # The filename is taken from the ALLOWED_DATA_SOURCES in the problem description
-    csv_file_path = 'ProvidedCSV.csv'
-    
-    # Perform the analysis
-    analysis_result = analyze_sales_data(csv_file_path)
-    
-    # Print the final result as a JSON string
-    print(json.dumps(analysis_result, indent=4))
+print(json.dumps(result))
+print(query3)

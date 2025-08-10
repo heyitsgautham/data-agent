@@ -377,66 +377,70 @@ async def scrape_all_urls(urls: list) -> list:
     
     return scraped_data
 
+
+
 async def get_database_schemas(database_files: list) -> list:
-    """Get schema and sample data from database files without loading full data"""
+    """Get schema and minimal sample data from database files without loading full datasets"""
     database_info = []
-    
-    # Setup DuckDB
+
     conn = duckdb.connect()
     try:
         conn.execute("INSTALL httpfs; LOAD httpfs;")
         conn.execute("INSTALL parquet; LOAD parquet;")
-        print("✅ DuckDB extensions loaded")
     except Exception as e:
-        print(f"Warning: Could not load DuckDB extensions: {e}")
-    
+        print(f"⚠️ DuckDB extension load failed: {e}")
+
     for i, db_file in enumerate(database_files):
         try:
             url = db_file["url"]
             format_type = db_file["format"]
-            
+
+            if not url or "s3://indian-high-court-judgments" in url:
+                print(f"⏩ Skipping disallowed or empty path: {url}")
+                continue
+
             print(f"📊 Getting schema for database {i+1}/{len(database_files)}: {url}")
-            
-            # Get schema (column info)
-            if format_type == "parquet" or "parquet" in url:
-                schema_query = f"DESCRIBE SELECT * FROM read_parquet('{url}') LIMIT 0"
-                sample_query = f"SELECT * FROM read_parquet('{url}') LIMIT 5"
-            elif format_type == "csv" or "csv" in url:
-                schema_query = f"DESCRIBE SELECT * FROM read_csv_auto('{url}') LIMIT 0"
-                sample_query = f"SELECT * FROM read_csv_auto('{url}') LIMIT 5"
-            elif format_type == "json" or "json" in url:
-                schema_query = f"DESCRIBE SELECT * FROM read_json_auto('{url}') LIMIT 0"
-                sample_query = f"SELECT * FROM read_json_auto('{url}') LIMIT 5"
+
+            # CSV Optimization — if file exists locally, read directly
+            if "csv" in format_type or url.endswith(".csv"):
+                if os.path.exists(url):
+                    print("⚡ Optimized local CSV schema extraction")
+                    schema_df = conn.execute(f"DESCRIBE SELECT * FROM read_csv_auto('{url}') LIMIT 0").fetchdf()
+                    sample_df = conn.execute(f"SELECT * FROM read_csv_auto('{url}') LIMIT 5").fetchdf()
+                else:
+                    schema_df = conn.execute(f"DESCRIBE SELECT * FROM read_csv_auto('{url}') LIMIT 0").fetchdf()
+                    sample_df = conn.execute(f"SELECT * FROM read_csv_auto('{url}') LIMIT 5").fetchdf()
+            elif "parquet" in format_type or url.endswith(".parquet"):
+                schema_df = conn.execute(f"DESCRIBE SELECT * FROM read_parquet('{url}') LIMIT 0").fetchdf()
+                sample_df = conn.execute(f"SELECT * FROM read_parquet('{url}') LIMIT 5").fetchdf()
+            elif "json" in format_type or url.endswith(".json"):
+                schema_df = conn.execute(f"DESCRIBE SELECT * FROM read_json_auto('{url}') LIMIT 0").fetchdf()
+                sample_df = conn.execute(f"SELECT * FROM read_json_auto('{url}') LIMIT 5").fetchdf()
             else:
                 print(f"❌ Unsupported format: {format_type}")
                 continue
-            
-            # Get schema
-            schema_df = conn.execute(schema_query).fetchdf()
+
             schema_info = {
                 "columns": list(schema_df['column_name']),
                 "column_types": dict(zip(schema_df['column_name'], schema_df['column_type']))
             }
-            
-            # Get sample data
-            sample_df = conn.execute(sample_query).fetchdf()
-            
+
             database_info.append({
                 "filename": f"database_{i+1}",
                 "source_url": url,
                 "format": format_type,
                 "schema": schema_info,
-                "sample_data": sample_df.head(3).to_dict('records'),
+                "sample_data": sample_df.to_dict('records'),
                 "description": db_file.get("description", f"Database file ({format_type})"),
-                "access_query": sample_query.replace("LIMIT 5", ""),  # Remove limit for actual queries
+                "access_query": None,  # For CSV uploads, we don't keep a long query
                 "total_columns": len(schema_info["columns"])
             })
-            
-            print(f"✅ Database schema extracted: {len(schema_info['columns'])} columns")
-            
+
+            print(f"✅ Extracted schema: {len(schema_info['columns'])} columns")
+
         except Exception as e:
-            print(f"❌ Failed to get schema for {db_file['url']}: {e}")
-    
+            print(f"❌ Failed to process {db_file.get('url')}: {e}")
+
     conn.close()
     return database_info
 
@@ -702,9 +706,22 @@ async def aianalyst(
                         replacement = " " * leading_ws + replacement
                         _code = _code[:line_start] + replacement + _code[line_end:]
                     else:
-                        # Replace the offending line with a safe empty DataFrame assignment
-                        replacement = "import pandas as pd\n_safe_df = pd.DataFrame()\n"
-                        _code = _code[:line_start] + replacement + _code[line_end+1:]
+                        # For read_parquet, do NOT replace the path, just leave the original line as is
+                        if ptype == 'parquet':
+                            continue  # skip replacing for read_parquet
+                        # Replace only the offending path inside quotes with an empty string, keep the rest of the line
+                        offending_path = path
+                        new_line = re.sub(
+                            r"(['\"])(%s)\1" % re.escape(offending_path),
+                            r"\1\1",
+                            offending_line,
+                            count=1
+                        )
+                        # Preserve indentation
+                        leading_ws = len(offending_line) - len(offending_line.lstrip())
+                        replacement = " " * leading_ws + new_line.lstrip()
+                        _code = _code[:line_start] + replacement + _code[line_end:]
+        # Remove the logic that forcibly changes duckdb.connect(...) to duckdb.connect()
         if _modified:
             with open("chatgpt_code.py", "w", encoding="utf-8") as _f:
                 _f.write(_code)

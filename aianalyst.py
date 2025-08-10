@@ -235,9 +235,22 @@ async def aianalyst(
                         replacement = " " * leading_ws + replacement
                         _code = _code[:line_start] + replacement + _code[line_end:]
                     else:
-                        # Replace the offending line with a safe empty DataFrame assignment
-                        replacement = "import pandas as pd\n_safe_df = pd.DataFrame()\n"
-                        _code = _code[:line_start] + replacement + _code[line_end+1:]
+                        # For read_parquet, do NOT replace the path, just leave the original line as is
+                        if ptype == 'parquet':
+                            continue  # skip replacing for read_parquet
+                        # Replace only the offending path inside quotes with an empty string, keep the rest of the line
+                        offending_path = path
+                        new_line = re.sub(
+                            r"(['\"])(%s)\1" % re.escape(offending_path),
+                            r"\1\1",
+                            offending_line,
+                            count=1
+                        )
+                        # Preserve indentation
+                        leading_ws = len(offending_line) - len(offending_line.lstrip())
+                        replacement = " " * leading_ws + new_line.lstrip()
+                        _code = _code[:line_start] + replacement + _code[line_end:]
+        # Remove the logic that forcibly changes duckdb.connect(...) to duckdb.connect()
         if _modified:
             with open("chatgpt_code.py", "w", encoding="utf-8") as _f:
                 _f.write(_code)

@@ -2,23 +2,24 @@
 {
   "Which high court disposed the most cases from 2019 - 2022?": [
     "1. Filter data where the `year` column is greater than or equal to 2019 and less than or equal to 2022.",
-    "2. Filter out rows where the `disposal_nature` column is null or empty.",
-    "3. Group the filtered data by the `court` column and count the number of rows for each court.",
-    "4. Sort the results in descending order by the row count.",
-    "5. Return the `court` name from the top row of the sorted results."
+    "2. Group the filtered data by the `court` column.",
+    "3. Count the number of rows in each group and name the result `case_count`.",
+    "4. Sort the results in descending order by `case_count`.",
+    "5. Return the `court` name from the top row."
   ],
   "What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?": [
     "1. Filter data where the `court` column equals '33_10'.",
-    "2. Calculate a new column `delay_days` as the difference in days between the `decision_date` and `date_of_registration` columns.",
-    "3. Group the data by the `year` column and calculate the average of `delay_days` for each year, creating a column `avg_delay_days`.",
-    "4. Calculate the linear regression slope with `year` as the independent variable (X) and `avg_delay_days` as the dependent variable (Y).",
+    "2. For each row, calculate a new column `delay_days` as the difference in days between the `decision_date` and `date_of_registration` columns.",
+    "3. Group the data by the `year` column and calculate the average of `delay_days` for each year, creating a new dataset with `year` and `avg_delay` columns.",
+    "4. Calculate the slope of the linear regression line with `year` as the independent variable (X) and `avg_delay` as the dependent variable (Y).",
     "5. Return the calculated slope value."
   ],
   "Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters": [
-    "1. Create an aggregated dataset by filtering for `court` equals '33_10', grouping by `year`, and calculating the average difference in days between `decision_date` and `date_of_registration`.",
-    "2. Generate a scatter plot using the aggregated `year` column for the x-axis and the calculated average delay for the y-axis.",
-    "3. Overlay a linear regression line on the scatter plot.",
-    "4. Export the final plot as a WebP image, encode it to base64, and return it as a data URI string formatted as `data:image/webp;base64,...`."
+    "1. Filter data where the `court` column equals '33_10'.",
+    "2. For each `year`, calculate the average number of days between `decision_date` and `date_of_registration`, naming the result `avg_delay`.",
+    "3. Generate a scatter plot with the `year` column on the x-axis and the calculated `avg_delay` on the y-axis.",
+    "4. Overlay a linear regression line on the plot using the `year` and `avg_delay` data.",
+    "5. Encode the final plot as a WEBP image and return it as a data URI string with the prefix 'data:image/webp;base64,'."
   ]
 }
 ```

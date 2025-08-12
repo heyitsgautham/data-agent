@@ -16,3 +16,4 @@ matplotlib
 seaborn
 plotly
 scikit-learn
+jinja2

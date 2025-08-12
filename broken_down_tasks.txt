@@ -1,0 +1,22 @@
+*   **Question 1: How many $2 bn movies were released before 2000?**
+    1.  Filter rows where the `Worldwide gross` column is greater than or equal to 2000000000.
+    2.  From the result, filter rows where the `Year` column is less than 2000.
+    3.  Count the number of rows in the final filtered dataset.
+    4.  Return the count as the answer.
+
+*   **Question 2: Which is the earliest film that grossed over $1.5 bn?**
+    1.  Filter rows where the `Worldwide gross` column is greater than 1500000000.
+    2.  Sort the filtered data by the `Year` column in ascending order.
+    3.  Select the `Title` value from the first row of the sorted data.
+    4.  Return the selected title as the answer.
+
+*   **Question 3: What's the correlation between the Rank and Peak?**
+    1.  Select the `Rank` and `Peak` columns.
+    2.  Calculate the Pearson correlation coefficient between the `Rank` column and the `Peak` column.
+    3.  Return the calculated correlation coefficient as the answer.
+
+*   **Question 4: Draw a scatterplot of Rank and Peak along with a dotted red regression line through it.**
+    1.  Create a scatter plot with the `Rank` column as the x-axis and the `Peak` column as the y-axis.
+    2.  Compute and overlay a linear regression line on the plot, formatted as a dotted red line.
+    3.  Export the complete plot as a PNG image.
+    4.  Encode the PNG image to a base64 string and format it as a data URI (`"data:image/png;base64,..."`).

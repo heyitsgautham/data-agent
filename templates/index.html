@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Analyst File Uploader with Remove</title>
+    <style>
+      body {
+        background: #222233;
+        color: #eee;
+        font-family: "Poppins", sans-serif;
+        display: flex;
+        justify-content: center;
+        padding: 40px 20px;
+      }
+      .container {
+        background: #2a2a4a;
+        padding: 40px 50px;
+        border-radius: 15px;
+        max-width: 450px;
+        width: 100%;
+      }
+      h1 {
+        margin-bottom: 25px;
+        font-weight: 600;
+      }
+      form > div {
+        margin-bottom: 25px;
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      .file-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+      input[type="file"] {
+        flex-grow: 1;
+        padding: 8px;
+        border-radius: 8px;
+        border: none;
+        background: #444678;
+        color: #ccc;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.3s ease;
+      }
+      input[type="file"]:hover {
+        background: #5a5a8a;
+      }
+      .file-name {
+        margin-left: 10px;
+        background: #3f3f6f;
+        padding: 5px 10px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        max-width: 160px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .remove-btn {
+        margin-left: 8px;
+        color: #ff5c5c;
+        font-weight: 700;
+        cursor: pointer;
+        user-select: none;
+        font-size: 1.2rem;
+      }
+      button {
+        width: 100%;
+        background: #6c63ff;
+        color: white;
+        font-weight: 700;
+        padding: 15px 0;
+        border: none;
+        border-radius: 12px;
+        font-size: 1.15rem;
+        cursor: pointer;
+        transition: background 0.3s ease;
+      }
+      button:hover {
+        background: #574bcc;
+      }
+      pre.response {
+        margin-top: 25px;
+        background: #1b1b30;
+        padding: 20px;
+        border-radius: 12px;
+        max-height: 250px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 0.9rem;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>AI Analyst File Uploader</h1>
+      <form id="uploadForm">
+        <div>
+          <label for="file">questions.txt (required):</label>
+          <div class="file-input-wrapper">
+            <input type="file" id="file" name="file" accept=".txt" required />
+            <span class="file-name" id="file-name"></span>
+            <span
+              class="remove-btn"
+              id="remove-file"
+              title="Remove file"
+              style="display: none"
+              >&times;</span
+            >
+          </div>
+        </div>
+        <div>
+          <label for="csv">edges.csv (optional):</label>
+          <div class="file-input-wrapper">
+            <input type="file" id="csv" name="csv" accept=".csv" />
+            <span class="file-name" id="csv-name"></span>
+            <span
+              class="remove-btn"
+              id="remove-csv"
+              title="Remove file"
+              style="display: none"
+              >&times;</span
+            >
+          </div>
+        </div>
+        <div>
+          <label for="image">image.png (optional):</label>
+          <div class="file-input-wrapper">
+            <input type="file" id="image" name="image" accept="image/*" />
+            <span class="file-name" id="image-name"></span>
+            <span
+              class="remove-btn"
+              id="remove-image"
+              title="Remove file"
+              style="display: none"
+              >&times;</span
+            >
+          </div>
+        </div>
+        <button type="submit">Upload</button>
+      </form>
+      <pre class="response" id="response"></pre>
+    </div>
+
+    <script>
+      function setupFileInput(fileInputId, nameSpanId, removeBtnId) {
+        const input = document.getElementById(fileInputId);
+        const nameSpan = document.getElementById(nameSpanId);
+        const removeBtn = document.getElementById(removeBtnId);
+
+        input.addEventListener("change", () => {
+          if (input.files.length > 0) {
+            nameSpan.textContent = input.files[0].name;
+            removeBtn.style.display = "inline";
+          } else {
+            nameSpan.textContent = "";
+            removeBtn.style.display = "none";
+          }
+        });
+
+        removeBtn.addEventListener("click", () => {
+          input.value = "";
+          nameSpan.textContent = "";
+          removeBtn.style.display = "none";
+        });
+      }
+
+      setupFileInput("file", "file-name", "remove-file");
+      setupFileInput("csv", "csv-name", "remove-csv");
+      setupFileInput("image", "image-name", "remove-image");
+
+      const form = document.getElementById("uploadForm");
+      const responseBox = document.getElementById("response");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        responseBox.textContent = "Uploading...";
+
+        const formData = new FormData(form);
+
+        try {
+          const res = await fetch("http://localhost:8000/api/", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(errorText || `Server error: ${res.status}`);
+          }
+
+          const text = await res.text();
+          // Assuming the backend returns the content of questions.txt file as plain text in response
+          responseBox.textContent = `Response from server:\n\n${text}`;
+        } catch (err) {
+          responseBox.textContent = `Upload failed:\n${err.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>

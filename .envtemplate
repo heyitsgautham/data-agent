@@ -1,0 +1,4 @@
+API_KEY = 'your-api-key'
+OCR_API_KEY = 'your-api-key'
+gemini_api = 'your-api-key'
+horizon_api = 'your-api-key'
